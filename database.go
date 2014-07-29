@@ -37,3 +37,11 @@ func NewDB() *db {
 	out.res = make(chan bool)
 	return out
 }
+
+func (d *db) setKnown(known map[string]struct{}) {
+	d.known = known
+}
+
+func (d *db) getKnown() (known map[string]struct{}) {
+	return d.known
+}

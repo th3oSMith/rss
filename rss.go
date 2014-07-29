@@ -75,15 +75,16 @@ func FetchByFunc(fetchFunc FetchFunc, url string) (*Feed, error) {
 // Feed is the top-level structure.
 type Feed struct {
 	Nickname    string
-	Title       string
-	Description string
-	Link        string
-	UpdateURL   string
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Link        string `json:"link"`
+	UpdateURL   string `json:"xmlurl"`
 	Image       *Image
 	Items       []*Item
 	ItemMap     map[string]struct{}
-	Refresh     time.Time
+	Refresh     time.Time `json:"updateDate"`
 	Unread      uint32
+	Id          int64 `json:"id"`
 }
 
 // Update fetches any new items and updates f.
@@ -127,6 +128,39 @@ func (f *Feed) Update() error {
 	return nil
 }
 
+/**
+ * Récupération des nouveaux Articles d'un Flux
+ */
+func (f *Feed) GetNew() (articles []*Item, err error) {
+
+	/*// On ne vérifie pas trop souvent
+	if f.Refresh.After(time.Now()) {
+		return nil, nil
+	}
+	*/
+
+	if f.UpdateURL == "" {
+		return nil, errors.New("Error: Le flux n'a pas d'URL")
+	}
+
+	update, err := Fetch(f.UpdateURL)
+	if err != nil {
+		return nil, err
+	}
+
+	f.Refresh = update.Refresh
+	f.Title = update.Title
+	f.Description = update.Description
+
+	for _, item := range update.Items {
+		articles = append(articles, item)
+		f.Unread++
+	}
+
+	return articles, nil
+
+}
+
 func (f *Feed) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString(fmt.Sprintf("Feed %q\n\t%q\n\t%q\n\t%s\n\tRefresh at %s\n\tUnread: %d\n\tItems:\n",
@@ -139,12 +173,14 @@ func (f *Feed) String() string {
 
 // Item represents a single story.
 type Item struct {
-	Title   string
-	Content string
-	Link    string
-	Date    time.Time
+	Title   string    `json:"title"`
+	Content string    `json:"description"`
+	Link    string    `json:"link"`
+	Date    time.Time `json:"date"`
+	PubDate time.Time `json:"pubdate"`
 	ID      string
 	Read    bool
+	Id      int64 `json:"id"`
 }
 
 func (i *Item) String() string {
@@ -165,4 +201,12 @@ type Image struct {
 
 func (i *Image) String() string {
 	return fmt.Sprintf("Image %q", i.Title)
+}
+
+func Restore(known map[string]struct{}) {
+	database.setKnown(known)
+}
+
+func GetState() (known map[string]struct{}) {
+	return database.getKnown()
 }
