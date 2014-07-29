@@ -152,6 +152,8 @@ func (f *Feed) GetNew() (articles []*Item, err error) {
 	f.Title = update.Title
 	f.Description = update.Description
 
+	update = &Feed{}
+
 	for _, item := range update.Items {
 		articles = append(articles, item)
 		f.Unread++
