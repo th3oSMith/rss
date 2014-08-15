@@ -82,9 +82,11 @@ type Feed struct {
 	Image       *Image
 	Items       []*Item
 	ItemMap     map[string]struct{}
-	Refresh     time.Time `json:"updateDate"`
+	Refresh     time.Time
+	UpdateDate  time.Time `json:"updateDate"`
 	Unread      uint32
-	Id          int64 `json:"id"`
+	Id          int64  `json:"id"`
+	Status      string `json:"status"`
 }
 
 // Update fetches any new items and updates f.
@@ -116,6 +118,7 @@ func (f *Feed) Update() error {
 	f.Refresh = update.Refresh
 	f.Title = update.Title
 	f.Description = update.Description
+	f.UpdateDate = time.Now()
 
 	for _, item := range update.Items {
 		if _, ok := f.ItemMap[item.ID]; !ok {
@@ -145,20 +148,28 @@ func (f *Feed) GetNew() (articles []*Item, err error) {
 
 	update, err := Fetch(f.UpdateURL)
 	if err != nil {
+		f.Status = "error: Impossible de récupérer le flux"
 		return nil, err
 	}
 
 	f.Refresh = update.Refresh
 	f.Title = update.Title
 	f.Description = update.Description
-
-	update = &Feed{}
+	f.UpdateDate = time.Now()
+	f.Status = "Updated"
 
 	for _, item := range update.Items {
 		articles = append(articles, item)
 		f.Unread++
 	}
 
+	update = &Feed{}
+
+	if len(articles) == 0 {
+		f.Status = "not modified"
+	}
+
+	fmt.Println(articles)
 	return articles, nil
 
 }
