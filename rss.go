@@ -159,17 +159,19 @@ func (f *Feed) GetNew() (articles []*Item, err error) {
 	f.Status = "Updated"
 
 	for _, item := range update.Items {
+		// Si l'article n'a pas de date de publication on prend la date de récupération
+		if time.Since(item.Date).Hours() > 24 {
+			item.Date = time.Now()
+		}
 		articles = append(articles, item)
 		f.Unread++
 	}
-
 	update = &Feed{}
 
 	if len(articles) == 0 {
 		f.Status = "not modified"
 	}
 
-	fmt.Println(articles)
 	return articles, nil
 
 }
@@ -193,7 +195,8 @@ type Item struct {
 	PubDate time.Time `json:"pubdate"`
 	ID      string
 	Read    bool
-	Id      int64 `json:"id"`
+	Id      int64  `json:"id"`
+	Feed    string `json:"feed"`
 }
 
 func (i *Item) String() string {
