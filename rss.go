@@ -2,6 +2,7 @@ package rss
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -9,6 +10,11 @@ import (
 	"strings"
 	"time"
 )
+
+type Credentials struct {
+	Username string
+	Password string
+}
 
 // Parse RSS or Atom data.
 func Parse(data []byte) (*Feed, error) {
@@ -35,12 +41,27 @@ func CacheParsedItemIDs(flag bool) (didCache bool) {
 type FetchFunc func() (resp *http.Response, err error)
 
 // Fetch downloads and parses the RSS feed at the given URL
-func Fetch(url string) (*Feed, error) {
-	return FetchByClient(url, http.DefaultClient)
+func Fetch(url string, insecure bool, credentials Credentials) (*Feed, error) {
+	if insecure {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+
+		return FetchByClient(url, &http.Client{Transport: tr}, credentials)
+	}
+	return FetchByClient(url, http.DefaultClient, credentials)
 }
 
-func FetchByClient(url string, client *http.Client) (*Feed, error) {
+func FetchByClient(url string, client *http.Client, credentials Credentials) (*Feed, error) {
 	fetchFunc := func() (resp *http.Response, err error) {
+
+		if credentials.Username != "" && credentials.Password != "" {
+			request, _ := http.NewRequest("GET", url, nil)
+			request.SetBasicAuth(credentials.Username, credentials.Password)
+
+			return client.Do(request)
+		}
+
 		return client.Get(url)
 	}
 	return FetchByFunc(fetchFunc, url)
@@ -110,7 +131,7 @@ func (f *Feed) Update() error {
 		}
 	}
 
-	update, err := Fetch(f.UpdateURL)
+	update, err := Fetch(f.UpdateURL, false, Credentials{})
 	if err != nil {
 		return err
 	}
@@ -146,7 +167,7 @@ func (f *Feed) GetNew() (articles []*Item, err error) {
 		return nil, errors.New("Error: Le flux n'a pas d'URL")
 	}
 
-	update, err := Fetch(f.UpdateURL)
+	update, err := Fetch(f.UpdateURL, false, Credentials{})
 	if err != nil {
 		f.Status = "error: Impossible de récupérer le flux"
 		return nil, err
