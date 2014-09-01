@@ -47,12 +47,12 @@ func Fetch(url string, insecure bool, credentials Credentials) (*Feed, error) {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 
-		return FetchByClient(url, &http.Client{Transport: tr}, credentials)
+		return FetchByClient(url, &http.Client{Transport: tr}, insecure, credentials)
 	}
-	return FetchByClient(url, http.DefaultClient, credentials)
+	return FetchByClient(url, http.DefaultClient, insecure, credentials)
 }
 
-func FetchByClient(url string, client *http.Client, credentials Credentials) (*Feed, error) {
+func FetchByClient(url string, client *http.Client, insecure bool, credentials Credentials) (*Feed, error) {
 	fetchFunc := func() (resp *http.Response, err error) {
 
 		if credentials.Username != "" && credentials.Password != "" {
@@ -64,10 +64,10 @@ func FetchByClient(url string, client *http.Client, credentials Credentials) (*F
 
 		return client.Get(url)
 	}
-	return FetchByFunc(fetchFunc, url)
+	return FetchByFunc(fetchFunc, url, insecure, credentials)
 }
 
-func FetchByFunc(fetchFunc FetchFunc, url string) (*Feed, error) {
+func FetchByFunc(fetchFunc FetchFunc, url string, insecure bool, credentials Credentials) (*Feed, error) {
 	resp, err := fetchFunc()
 	if err != nil {
 		return nil, err
@@ -89,6 +89,8 @@ func FetchByFunc(fetchFunc FetchFunc, url string) (*Feed, error) {
 	}
 
 	out.UpdateURL = url
+	out.Insecure = insecure
+	out.Credentials = credentials
 
 	return out, nil
 }
@@ -108,6 +110,8 @@ type Feed struct {
 	Unread      uint32
 	Id          int64  `json:"id"`
 	Status      string `json:"status"`
+	Insecure    bool
+	Credentials Credentials
 }
 
 // Update fetches any new items and updates f.
@@ -131,7 +135,7 @@ func (f *Feed) Update() error {
 		}
 	}
 
-	update, err := Fetch(f.UpdateURL, false, Credentials{})
+	update, err := Fetch(f.UpdateURL, f.Insecure, f.Credentials)
 	if err != nil {
 		return err
 	}
@@ -167,7 +171,7 @@ func (f *Feed) GetNew() (articles []*Item, err error) {
 		return nil, errors.New("Error: Le flux n'a pas d'URL")
 	}
 
-	update, err := Fetch(f.UpdateURL, false, Credentials{})
+	update, err := Fetch(f.UpdateURL, f.Insecure, f.Credentials)
 	if err != nil {
 		f.Status = "error: Impossible de récupérer le flux"
 		return nil, err
