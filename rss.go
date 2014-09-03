@@ -70,6 +70,9 @@ func FetchByClient(url string, client *http.Client, insecure bool, credentials C
 func FetchByFunc(fetchFunc FetchFunc, url string, insecure bool, credentials Credentials) (*Feed, error) {
 	resp, err := fetchFunc()
 	if err != nil {
+		if strings.Contains(err.Error(), "unknown authority") {
+			return nil, errors.New("Certificat signed by unknown authority")
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -81,6 +84,9 @@ func FetchByFunc(fetchFunc FetchFunc, url string, insecure bool, credentials Cre
 
 	out, err := Parse(body)
 	if err != nil {
+		if credentials.Username != "" && strings.Contains(err.Error(), "<feed>") {
+			return nil, errors.New("Wrong Login/Password")
+		}
 		return nil, err
 	}
 
@@ -173,6 +179,14 @@ func (f *Feed) GetNew() (articles []*Item, err error) {
 
 	update, err := Fetch(f.UpdateURL, f.Insecure, f.Credentials)
 	if err != nil {
+		if strings.Contains(err.Error(), "unknown authority") {
+			f.Status = "error: Certificat signed by unknown authority"
+			return nil, err
+		}
+		if f.Credentials.Username != "" && strings.Contains(err.Error(), "Wrong") {
+			f.Status = "error: Wrong Login/Password"
+			return nil, err
+		}
 		f.Status = "error: Impossible de récupérer le flux"
 		return nil, err
 	}
