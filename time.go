@@ -19,19 +19,20 @@ func parseTime(s string) (time.Time, error) {
 		time.RFC1123Z,
 		time.RFC3339,
 		time.RFC3339Nano,
+		"02 Jan 2006 15:04:05 -0700", // cc ANSM
 	}
 
 	s = strings.TrimSpace(s)
-	
+
 	var e error
 	var t time.Time
-	
+
 	for _, format := range formats {
 		t, e = time.Parse(format, s)
 		if e == nil {
 			return t, e
 		}
 	}
-	
+
 	return time.Time{}, e
 }
